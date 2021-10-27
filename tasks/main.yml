@@ -1,0 +1,84 @@
+---
+- name: Install required packages
+  package:
+    name:
+      - python3-setuptools
+      - python3-virtualenv
+      - python3-venv
+      - git
+      # additional deb packages
+      - zlibc
+      - zlib1g-dev
+      - libjpeg-dev
+      - python3-gunicorn
+      - libart-2.0-dev
+      - libfreetype6-dev
+      # for compiling Pillow
+      - python3-dev
+      - gcc
+      - make
+      # Pillow takes a long to compile from source
+      - python3-pil
+
+- name: "Add the user '{{ django_project_user }}'"
+  ansible.builtin.user:
+    name: "{{ django_project_user }}"
+    comment: "{{ django_project }} django project user"
+    group: "{{ django_project_group }}"
+      # home: "{{ django_app_path }}"
+    create_home: true
+  register: new_user
+
+- debug:
+    var: new_user
+
+- name: "Make .ssh directory"
+  file:
+    path: "{{ new_user.home }}/.ssh"
+    state: directory
+    owner: "{{ django_project_user }}"
+    mode: 0700
+
+- name: "Copy SSH key for cloning git repository"
+  copy:
+    src: "{{ inventory_dir }}/id_ed25519"
+    dest: "{{ new_user.home }}/.ssh/id_ed25519"
+    owner: "{{ django_project_user }}"
+    mode: 0600
+
+      # - name: Add SSH key to access git repository
+- name: determine current user
+  command: whoami
+  register: django_whoami_result
+  changed_when: false
+
+- name: determine current user vs. actual user
+  set_fact:
+    django_current_user: "{{ (
+      ansible_user
+      | default(ansible_ssh_user, true)
+      | default(ansible_user_id, true)
+      | default(lookup('env', 'USER'))
+      ) }}"
+    django_actual_user: "{{ django_whoami_result.stdout }}"
+
+- name: initialize default role variables
+  set_fact:
+    django_app_path: "{{ django_app_path | mandatory }}"
+    django_becoming: "{{ (
+      django_actual_user != django_current_user
+      or django_actual_user == 'root'
+      ) }}"
+    django_user: "{{ django_user | default(django_current_user, true) }}"
+
+- name: run update tasks with become
+  import_tasks: update.yml
+  when:
+    - django_user != django_actual_user
+  become: true
+  become_user: "{{ django_user }}"
+
+- name: run update tasks without become
+  import_tasks: update.yml
+  when: django_user == django_actual_user
+  become: false

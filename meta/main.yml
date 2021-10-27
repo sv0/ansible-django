@@ -1,0 +1,21 @@
+---
+galaxy_info:
+  role_name: django
+  namespace: sv0
+  author: Slavik Svyrydiuk
+  description: Configure and update Django project.
+  company: 'Viacheslav Svyrydiuk, OSVC'
+  license: WTFPL
+  min_ansible_version: 2.9
+  platforms:
+    - name: Debian
+      versions:
+        - buster
+        - bullseye
+  galaxy_tags:
+    - development
+    - web
+    - django
+
+allow_duplicates: true
+dependencies: []
